@@ -5,6 +5,7 @@ import           Text.ParserCombinators.Parsec
 import           System.Environment
 import           Control.Monad
 import           Data.Ratio
+import           Data.Array
 import           Numeric
 
 -- lisp ADT
@@ -17,6 +18,7 @@ data LispVal = Atom String                      -- atom
              | Character Char                   -- 'a'
              | Float Double                     -- 1.22
              | Ratio Rational                   -- 1/2  
+             | Vector (Array Int LispVal)       -- #(1 2 3)
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
@@ -53,12 +55,16 @@ parseAtom = do
 
 -- parser for List
 parseList :: Parser LispVal
-parseList = return $ String "TODO"
+parseList = List <$> sepBy parseExpr spaces
 
 -- parser for DottedList
+-- (1 2 3 . 4) -> DootedList [1, 2, 3] 4
 parseDottedList :: Parser LispVal
-parseDottedList = return $ String "TODO"
-
+parseDottedList = do
+    first <- endBy parseExpr spaces
+    rest <- char '.' >> spaces >> parseExpr
+    return $ DottedList first rest
+ 
 -- convert binary string to integer
 binaryToInt :: String -> Integer
 binaryToInt = foldr (\c s -> s * 2 + c) 0 . reverse . map c2i
@@ -160,7 +166,46 @@ parseRatio = do
 
 -- parser for quoted
 parseQuoted :: Parser LispVal
-parseQuoted = return $ String "TODO"
+parseQuoted = do
+    char '\''
+    x <- parseExpr
+    return $ List [Atom "quoted", x]
+
+-- parser for unquoted
+parseUnquoted :: Parser LispVal
+parseUnquoted = do
+    char ','
+    x <- parseExpr
+    return $ List [Atom "unquoted", x]
+
+-- parser for quasiquoted
+parseQQuoted :: Parser LispVal
+parseQQuoted = do
+    char '`'
+    x <- parseExpr
+    return $ List [Atom "quosiquoted", x]
+
+-- parser for list or dotted list
+parseList' :: Parser LispVal
+parseList' = do 
+    char '('
+    x <- try parseList <|> parseDottedList
+    char ')'
+    return x
+
+-- parser for vector
+parseVector :: Parser LispVal
+parseVector = do
+    values <- sepBy parseExpr spaces
+    return $ Vector (listArray (0, length values) values)
+
+-- wrapper for parser of vector
+parseVector' :: Parser LispVal
+parseVector' = do
+    string "#("
+    x <- parseVector
+    string ")"
+    return x
 
 -- parse lisp expression
 parseExpr :: Parser LispVal
@@ -171,5 +216,8 @@ parseExpr =
         <|> try parseBool
         <|> try parseCharacter
         <|> try parseFloat
-        -- <|> parseList
-        -- <|> parseDottedList
+        <|> try parseQuoted
+        <|> try parseVector'
+        <|> parseList'
+        <|> parseUnquoted
+        <|> parseQQuoted
