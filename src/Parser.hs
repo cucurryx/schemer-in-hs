@@ -20,6 +20,26 @@ data LispVal = Atom String                      -- atom
              | Ratio Rational                   -- 1/2  
              | Vector (Array Int LispVal)       -- #(1 2 3)
 
+
+instance Show LispVal where show = showVal
+
+-- serialization function for LispVal
+showVal :: LispVal -> String
+showVal (Atom atom) = atom
+showVal (String str) = "\"" ++ str ++ "\""
+showVal (Bool True) = "#t"
+showVal (Bool False) = "#f"
+showVal (Character char) = [char]
+showVal (Number num) = show num
+showVal (Float float) = show float
+showVal (Ratio ratio) = show ratio
+showVal (Vector vec) = "(vector" ++ show vec ++ ")"
+showVal (List list) = "(" ++ serializeList list ++ ")"
+showVal (DottedList front last) = "(" ++ serializeList front ++ " . " ++ showVal last ++ ")"
+
+serializeList :: [LispVal] -> String 
+serializeList = unwords . map showVal
+
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
 
@@ -27,10 +47,10 @@ spaces :: Parser ()
 spaces = skipMany1 space
 
 -- read a expr, and handle all possible errors
-readExpr :: String -> String
+readExpr :: String -> LispVal
 readExpr input = case parse parseExpr "read lisp expr" input of
-    Left  err -> "Error: " ++ show err
-    Right val -> "Found value"
+    Left  err -> String $ "Error: " ++ show err
+    Right val -> val
 
 -- parser for Bool
 parseBool :: Parser LispVal
@@ -197,7 +217,7 @@ parseList' = do
 parseVector :: Parser LispVal
 parseVector = do
     values <- sepBy parseExpr spaces
-    return $ Vector (listArray (0, length values) values)
+    return $ Vector (listArray (0, length values - 1) values)
 
 -- wrapper for parser of vector
 parseVector' :: Parser LispVal
