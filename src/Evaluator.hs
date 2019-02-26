@@ -1,5 +1,7 @@
 module Evaluator where
 
+import Control.Monad.Except
+
 import Parser
 
 -- evaluator 
@@ -29,25 +31,38 @@ primitives = [
     ("/", basicFuncWrapper div),
     ("mod", basicFuncWrapper mod),
     ("quotient", basicFuncWrapper quot),
-    ("remainder", basicFuncWrapper rem)]
+    ("remainder", basicFuncWrapper rem),
+    ("symbol?", unaryFuncWrapper symbol'),
+    ("number?", unaryFuncWrapper number'),
+    ("string?", unaryFuncWrapper string'),
+    ("bool?", unaryFuncWrapper bool')]
 
+-- wrap primitive functions of haskell 
 basicFuncWrapper :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
 basicFuncWrapper func args =  Number $ foldl1 func params
     where params = map unwrapNum args
+
+-- wrap basic unary functions(like symbol?)
+unaryFuncWrapper :: (LispVal -> LispVal) -> [LispVal] -> LispVal
+unaryFuncWrapper func [arg] = func arg
 
 -- unwrap number from LispVal
 unwrapNum :: LispVal -> Integer
 unwrapNum (Number x) = x
 unwrapNum _ = 0
 
-symbol :: LispVal -> LispVal
-symbol (Atom _) = Bool True
-symbol _ = Bool False
+symbol' :: LispVal -> LispVal
+symbol' (Atom _) = Bool True
+symbol' _ = Bool False
 
-number :: LispVal -> LispVal
-number (Number _) = Bool True
-number _ = Bool False
+number' :: LispVal -> LispVal
+number' (Number _) = Bool True
+number' _ = Bool False
 
-string :: LispVal -> LispVal
-string (String _) = Bool True
-string _ = Bool False
+string' :: LispVal -> LispVal
+string' (String _) = Bool True
+string' _ = Bool False
+
+bool' :: LispVal -> LispVal
+bool' (Bool _) = Bool True
+bool' _ = Bool False
